@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	"os"
+	"time"
 )
 
 var csvFile *string = flag.String("csv", "example.csv", "CSV file with all the questions")
@@ -36,11 +37,17 @@ func init() {
 	readQuestions()
 }
 
-func getInput(scanner *bufio.Scanner) string {
-	if !scanner.Scan() {
-		check("Failed to read user input", scanner.Err())
+func getInput(inputChan chan string) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		inputChan <- scanner.Text()
 	}
-	return scanner.Text()
+}
+
+func startTimer(c chan bool) {
+	glog.V(3).Infof("Starting timer for %v seconds", *timeout)
+	time.Sleep(time.Duration(*timeout) * time.Second)
+	c <- true
 }
 
 func startQuiz() {
@@ -50,7 +57,12 @@ func startQuiz() {
 	if confirm := scanner.Scan(); !confirm {
 		check("Failed to read user input", scanner.Err())
 	}
+	timerChan := make(chan bool, 1)
+	go startTimer(timerChan)
+	inputChan := make(chan string, 1)
+	go getInput(inputChan)
 	score := 0
+Loop:
 	for _, line := range questions {
 		if len(line) != 2 {
 			glog.Errorf("Skipping invalid question: %v", line)
@@ -59,12 +71,18 @@ func startQuiz() {
 		question := line[0]
 		answer := line[1]
 		fmt.Printf("%s :", question)
-		resp := getInput(scanner)
-		if resp == answer {
-			fmt.Println("Correct!")
-			score++
-		} else {
-			fmt.Println("Wrong!")
+		select {
+		case <-timerChan:
+			fmt.Println("Time is up!")
+			break Loop
+		case resp := <-inputChan:
+			if resp == answer {
+				fmt.Println("Correct!")
+				score++
+			} else {
+				fmt.Println("Wrong!")
+			}
+
 		}
 	}
 	fmt.Printf("You scored %d/%d\n", score, len(questions))
