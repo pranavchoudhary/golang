@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+    <title>
+
+    </title>
+    <body>
+        <h1>{{.Title}}</h1>
+        {{range .Story}}
+            <p>{{.}}</p>
+        {{end}}
+        {{range .Options}}
+            <a href={{.ChapterName}}>{{.Text}}</a>
+            <br/>
+        {{end}}
+    </body>
+</html>
